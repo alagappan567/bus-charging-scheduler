@@ -4,233 +4,263 @@ Scheduler orchestrator for the Bus Charging Scheduler.
 This module implements the main scheduling algorithm that coordinates
 plan generation, constraint validation, simulation, and objective scoring
 to produce optimal charging schedules for all buses.
+
+Algorithm overview (greedy sequential assignment):
+
+1. Generate all candidate charging plans for every bus.
+2. Filter out plans that violate hard constraints.
+3. Sort buses by departure time (earliest first).
+4. For each bus in order:
+   a. Try every valid candidate plan.
+   b. Simulate the plan together with already-assigned buses.
+   c. Score the simulation result using the weighted objectives.
+   d. Lock in the highest-scoring plan.
+5. Return the final simulation result.
+
+The greedy approach is fast (O(buses × plans × simulation_cost)) and
+produces good schedules.  It may not find the global optimum, but
+earlier-departing buses get priority, which is operationally fair.
 """
 
-from typing import Dict, List, Optional
+from __future__ import annotations
+
+from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 from scheduler.models import Scenario, Bus, ChargingPlan, SimulationResult
 from scheduler.plan_generator import generate_charging_plans
 from scheduler.constraints import (
     Constraint, ConstraintValidator,
-    RangeConstraint, RouteOrderConstraint, CompletionConstraint
+    RangeConstraint, RouteOrderConstraint, CompletionConstraint,
 )
 from scheduler.objectives import (
     Objective, ObjectiveEvaluator,
-    IndividualWaitObjective, OperatorFairnessObjective, OverallEfficiencyObjective
+    IndividualWaitObjective, OperatorFairnessObjective, OverallEfficiencyObjective,
 )
 from scheduler.simulator import EventSimulator
 
 
 class BusScheduler:
+    """Main scheduler orchestrator that coordinates all components.
+
+    Implements a greedy sequential assignment algorithm: buses are
+    processed in departure order, and for each bus the plan that
+    maximises the weighted objective score (given the already-assigned
+    buses) is selected and locked in.
+
+    Attributes:
+        scenario: The scenario being scheduled.
+        constraints: List of hard :class:`Constraint` objects.
+        constraint_validator: Validates plans against all constraints.
+        objectives: List of ``(Objective, weight)`` pairs.
+        objective_evaluator: Computes the weighted total score.
+        assigned_plans: Plans locked in so far, keyed by ``bus_id``.
     """
-    Main scheduler orchestrator that coordinates all components.
-    
-    This class implements a greedy sequential assignment algorithm:
-    1. Generate candidate charging plans for all buses
-    2. Filter plans that violate hard constraints
-    3. Sort buses by departure time
-    4. For each bus, try all its valid plans
-    5. Simulate and score each plan given current assignments
-    6. Select the best plan for this bus
-    7. Lock in the assignment and move to next bus
-    
-    This greedy approach is fast and produces good results, though it may
-    not find the global optimum. The sequential assignment ensures earlier
-    buses get priority, which is fair given they depart first.
-    """
-    
-    def __init__(self, scenario: Scenario):
-        """
-        Initialize the scheduler with a scenario.
-        
+
+    def __init__(self, scenario: Scenario) -> None:
+        """Initialise the scheduler with a scenario.
+
+        Registers all hard constraints and weighted soft objectives.
+
         Args:
-            scenario: The scenario containing route, buses, parameters, and weights
+            scenario: The scenario containing route, buses, parameters,
+                and objective weights.
         """
         self.scenario = scenario
-        
-        # Initialize constraint validator with all hard constraints
+
+        # Hard constraints — all must pass for a plan to be considered
         self.constraints: List[Constraint] = [
             RangeConstraint(),
             RouteOrderConstraint(),
-            CompletionConstraint()
+            CompletionConstraint(),
         ]
         self.constraint_validator = ConstraintValidator(self.constraints)
-        
-        # Initialize objective evaluator with weighted objectives
-        self.objectives: List[tuple[Objective, float]] = [
+
+        # Soft objectives — weighted sum determines plan quality
+        self.objectives: List[Tuple[Objective, float]] = [
             (IndividualWaitObjective(), scenario.weights.individual),
             (OperatorFairnessObjective(), scenario.weights.operator),
-            (OverallEfficiencyObjective(), scenario.weights.overall)
+            (OverallEfficiencyObjective(), scenario.weights.overall),
         ]
         self.objective_evaluator = ObjectiveEvaluator(self.objectives)
-        
-        # Track assigned plans
+
+        # Plans locked in during greedy assignment
         self.assigned_plans: Dict[str, ChargingPlan] = {}
-    
+
     def schedule(self) -> SimulationResult:
-        """
-        Main entry point for scheduling.
-        
-        This method orchestrates the entire scheduling process:
-        1. Generate all candidate plans for all buses
-        2. Validate plans against constraints
-        3. Assign buses greedily in departure order
-        4. Return the final simulation result
-        
+        """Run the full scheduling pipeline and return the result.
+
+        Orchestrates plan generation, constraint filtering, greedy
+        assignment, and final simulation.
+
         Returns:
-            SimulationResult containing bus timelines and station queues
+            :class:`SimulationResult` containing per-bus timelines and
+            per-station charging queues.
+
+        Raises:
+            RuntimeError: If no valid plan can be found for any bus.
         """
-        # Step 1: Generate all candidate plans
+        # Step 1: Generate candidate plans for every bus
         all_plans = self._generate_all_plans()
-        
-        # Step 2: Validate and filter plans
+
+        # Step 2: Discard plans that violate hard constraints
         valid_plans = self._validate_plans(all_plans)
-        
-        # Step 3: Greedy assignment
+
+        # Step 3: Assign buses greedily in departure order
         self._greedy_assign(valid_plans)
-        
-        # Step 4: Run final simulation with all assignments
+
+        # Step 4: Run the final simulation with all locked-in assignments
         result = self._simulate_and_score(self.assigned_plans)
-        
+
         return result
-    
+
     def _generate_all_plans(self) -> Dict[str, List[ChargingPlan]]:
-        """
-        Generate all candidate charging plans for all buses.
-        
-        For each bus, this generates all valid combinations of charging
-        stations that could potentially satisfy the range constraint.
-        
+        """Generate all candidate charging plans for every bus.
+
+        Calls :func:`generate_charging_plans` for each bus to produce
+        every combination of stations that could satisfy the range
+        requirement.  The constraint system performs the definitive
+        validity check in the next step.
+
         Returns:
-            Dictionary mapping bus_id to list of candidate ChargingPlan objects
+            Mapping of ``bus_id`` to list of candidate
+            :class:`ChargingPlan` objects.
         """
         all_plans: Dict[str, List[ChargingPlan]] = {}
-        
+
         for bus in self.scenario.buses:
-            # Generate candidate plans for this bus
             plans = generate_charging_plans(
                 bus=bus,
                 route=self.scenario.route,
-                params=self.scenario.parameters
+                params=self.scenario.parameters,
             )
             all_plans[bus.id] = plans
-        
+
         return all_plans
-    
-    def _validate_plans(self, all_plans: Dict[str, List[ChargingPlan]]) -> Dict[str, List[ChargingPlan]]:
-        """
-        Filter out plans that violate hard constraints.
-        
+
+    def _validate_plans(
+        self, all_plans: Dict[str, List[ChargingPlan]]
+    ) -> Dict[str, List[ChargingPlan]]:
+        """Filter out plans that violate any hard constraint.
+
         Args:
-            all_plans: Dictionary of bus_id to list of candidate plans
-            
+            all_plans: Mapping of ``bus_id`` to candidate plans.
+
         Returns:
-            Dictionary of bus_id to list of valid plans (subset of input)
+            Mapping of ``bus_id`` to the subset of plans that pass all
+            constraints.  A bus with no valid plans will have an empty
+            list.
         """
         valid_plans: Dict[str, List[ChargingPlan]] = {}
-        
+
         for bus_id, plans in all_plans.items():
-            # Filter plans that pass all constraints
+            # Keep only plans that satisfy every registered constraint
             valid = [
                 plan for plan in plans
                 if self.constraint_validator.is_valid(plan, self.scenario)
             ]
             valid_plans[bus_id] = valid
-        
+
         return valid_plans
-    
-    def _greedy_assign(self, valid_plans: Dict[str, List[ChargingPlan]]) -> None:
-        """
-        Assign buses sequentially in departure order using greedy selection.
-        
-        For each bus (in departure order):
-        1. Try all its valid plans
-        2. Simulate each plan with current assignments
-        3. Score each simulation
-        4. Select the best scoring plan
-        5. Lock in the assignment
-        
+
+    def _greedy_assign(
+        self, valid_plans: Dict[str, List[ChargingPlan]]
+    ) -> None:
+        """Assign plans to buses sequentially in departure order.
+
+        Processes buses from earliest to latest departure.  For each bus,
+        evaluates all valid candidate plans in the context of already-
+        assigned buses and locks in the best-scoring one.
+
+        Greedy rationale: earlier-departing buses have priority because
+        they arrive at stations first and their assignments constrain the
+        options available to later buses.  Processing in departure order
+        mirrors real-world fairness.
+
         Args:
-            valid_plans: Dictionary of bus_id to list of valid plans
+            valid_plans: Mapping of ``bus_id`` to valid candidate plans.
+
+        Raises:
+            RuntimeError: If a bus has no valid plans (indicates a route
+                or battery-capacity configuration problem).
         """
-        # Sort buses by departure time
+        # Sort buses by departure time so earlier buses are assigned first
         sorted_buses = sorted(
             self.scenario.buses,
-            key=lambda b: b.get_departure_datetime(datetime.now())
+            key=lambda b: b.get_departure_datetime(datetime.now()),
         )
-        
-        # Assign each bus sequentially
+
         for bus in sorted_buses:
-            # Get valid plans for this bus
             candidates = valid_plans.get(bus.id, [])
-            
+
             if not candidates:
-                # No valid plans for this bus - this shouldn't happen if
-                # plan generation and constraints are correct
+                # No valid plans — likely a route/battery configuration issue
                 raise RuntimeError(
                     f"No valid charging plans found for bus {bus.id}. "
                     f"This may indicate the route is too long for the battery capacity."
                 )
-            
-            # Select the best plan for this bus
+
+            # Pick the best plan for this bus given current assignments
             best_plan = self._select_best_plan(bus, candidates)
-            
-            # Lock in the assignment
+
+            # Lock in the assignment before processing the next bus
             self.assigned_plans[bus.id] = best_plan
-    
-    def _select_best_plan(self, bus: Bus, candidates: List[ChargingPlan]) -> ChargingPlan:
-        """
-        Select the best charging plan for a bus from candidates.
-        
-        This method tries each candidate plan, simulates it with the current
-        assignments, scores the result, and returns the plan with the best score.
-        
+
+    def _select_best_plan(
+        self, bus: Bus, candidates: List[ChargingPlan]
+    ) -> ChargingPlan:
+        """Select the highest-scoring plan for a single bus.
+
+        For each candidate plan, runs a full simulation that includes
+        all already-assigned buses plus this candidate, scores the
+        result, and returns the plan with the best score.
+
         Args:
-            bus: The bus to select a plan for
-            candidates: List of valid candidate plans
-            
+            bus: The bus to select a plan for.
+            candidates: Non-empty list of valid candidate plans.
+
         Returns:
-            The best scoring ChargingPlan
+            The :class:`ChargingPlan` that produced the highest weighted
+            objective score.  Falls back to the first candidate if all
+            scores are equal to ``-inf`` (should not occur in practice).
         """
         best_plan: Optional[ChargingPlan] = None
         best_score: float = float('-inf')
-        
+
         for plan in candidates:
-            # Create temporary assignments including this plan
+            # Build a temporary assignment set that includes this candidate
             temp_assignments = self.assigned_plans.copy()
             temp_assignments[bus.id] = plan
-            
-            # Simulate with these assignments
+
+            # Simulate and score this candidate in context
             result = self._simulate_and_score(temp_assignments)
-            
-            # Score the result
             score = self.objective_evaluator.evaluate(result, self.scenario)
-            
-            # Track best
+
+            # Track the plan with the highest score
             if score > best_score:
                 best_score = score
                 best_plan = plan
-        
+
         if best_plan is None:
-            # Fallback to first plan if scoring fails
+            # Fallback: return the first candidate (all scores were -inf)
             best_plan = candidates[0]
-        
+
         return best_plan
-    
-    def _simulate_and_score(self, assignments: Dict[str, ChargingPlan]) -> SimulationResult:
-        """
-        Run simulation with given plan assignments.
-        
+
+    def _simulate_and_score(
+        self, assignments: Dict[str, ChargingPlan]
+    ) -> SimulationResult:
+        """Run the event simulator with a given set of plan assignments.
+
+        Creates a fresh :class:`EventSimulator` for each call so that
+        simulation state does not leak between candidate evaluations.
+
         Args:
-            assignments: Dictionary mapping bus_id to ChargingPlan
-            
+            assignments: Mapping of ``bus_id`` to :class:`ChargingPlan`
+                for all buses that should participate in this simulation.
+
         Returns:
-            SimulationResult containing timelines and station queues
+            :class:`SimulationResult` from the simulator.
         """
-        # Create simulator
+        # A new simulator instance ensures clean state for each evaluation
         simulator = EventSimulator(self.scenario)
-        
-        # Run simulation
-        result = simulator.simulate(assignments)
-        
-        return result
+        return simulator.simulate(assignments)

@@ -169,41 +169,41 @@
 ### 8.1 README.md
 - [x] How to run locally (pip install, streamlit run)
 - [x] How to change a weight (edit scenario JSON, example)
-- [ ] How to add a new rule (write class, register, example)
-- [ ] Project structure overview
-- [ ] Dependencies and requirements
+- [x] How to add a new rule (write class, register, example)
+- [x] Project structure overview
+- [x] Dependencies and requirements
 
 ### 8.2 ARCHITECTURE.md
-- [ ] Explain scheduler approach (event simulation + greedy)
-- [ ] Justify why this approach (vs CP/MIP solver)
-- [ ] Data structure design rationale
-- [ ] List of anticipated changes (15+ items from requirements)
-- [ ] For each change, explain how design handles it
-- [ ] Code examples: changing weight, adding rule, adding station
-- [ ] Assumptions made and trade-offs
-- [ ] Performance characteristics and scaling
+- [x] Explain scheduler approach (event simulation + greedy)
+- [x] Justify why this approach (vs CP/MIP solver)
+- [x] Data structure design rationale
+- [x] List of anticipated changes (15+ items from requirements)
+- [x] For each change, explain how design handles it
+- [x] Code examples: changing weight, adding rule, adding station
+- [x] Assumptions made and trade-offs
+- [x] Performance characteristics and scaling
 
 ### 8.3 Code Documentation
-- [ ] Add docstrings to all public classes and methods
-- [ ] Add inline comments for non-obvious logic
-- [ ] Add type hints to all function signatures
+- [x] Add docstrings to all public classes and methods
+- [x] Add inline comments for non-obvious logic
+- [x] Add type hints to all function signatures
 
 ---
 
 ## Phase 9: Testing & Validation
 
 ### 9.1 Unit Tests
-- [ ] Test all constraints with valid/invalid inputs
-- [ ] Test all objectives with known scenarios
-- [ ] Test plan generation with various routes
-- [ ] Test charger allocation logic
-- [ ] Achieve >70% code coverage
+- [x] Test all constraints with valid/invalid inputs
+- [x] Test all objectives with known scenarios
+- [x] Test plan generation with various routes
+- [x] Test charger allocation logic
+- [x] Achieve >70% code coverage
 
 ### 9.2 Integration Tests
-- [ ] Test full scheduling for each scenario
-- [ ] Verify no constraint violations in output
-- [ ] Verify weight changes produce different schedules
-- [ ] Test edge cases (single bus, all buses same time)
+- [x] Test full scheduling for each scenario
+- [x] Verify no constraint violations in output
+- [x] Verify weight changes produce different schedules
+- [x] Test edge cases (single bus, all buses same time)
 
 ### 9.3 Manual Validation
 - [ ] Run all 5 scenarios in UI
@@ -217,9 +217,9 @@
 ## Phase 10: Deployment
 
 ### 10.1 Prepare for Deployment
-- [ ] Ensure requirements.txt is complete
+- [x] Ensure requirements.txt is complete
 - [ ] Test fresh install in clean environment
-- [ ] Verify all scenarios load without errors
+- [x] Verify all scenarios load without errors
 - [ ] Check app runs on default Streamlit port
 
 ### 10.2 Deploy to Streamlit Cloud
@@ -241,10 +241,10 @@
 ## Phase 11: Submission
 
 ### 11.1 Repository Cleanup
-- [ ] Remove any debug code or commented-out sections
-- [ ] Ensure .gitignore is correct (no venv, __pycache__)
-- [ ] Verify README and ARCHITECTURE are complete
-- [ ] Add LICENSE file (MIT or similar)
+- [x] Remove any debug code or commented-out sections
+- [x] Ensure .gitignore is correct (no venv, __pycache__)
+- [x] Verify README and ARCHITECTURE are complete
+- [x] Add LICENSE file (MIT or similar)
 
 ### 11.2 Submit
 - [ ] Fill out submission form with:

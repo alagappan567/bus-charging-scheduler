@@ -468,3 +468,99 @@ class TestConstraintIntegration:
         
         # A to C is 220 km, exactly at capacity
         assert validator.is_valid(plan, simple_scenario)
+
+
+# ============================================================================
+# Additional coverage tests for violation message paths
+# ============================================================================
+
+class TestRangeConstraintViolationMessages:
+    """Tests for RangeConstraint violation message paths."""
+
+    def test_violation_message_between_stations_exceeds_range(self, simple_scenario):
+        """Test violation message when distance between stations exceeds range."""
+        # Make A to B exceed battery capacity
+        simple_scenario.route.segments[1].distance_km = 250
+        simple_scenario.parameters.battery_capacity_km = 240
+
+        constraint = RangeConstraint()
+        plan = ChargingPlan(bus_id="bus-01", stations=["A", "B"])
+
+        message = constraint.get_violation_message(plan, simple_scenario)
+        assert "bus-01" in message
+        assert "250" in message or "250.0" in message
+
+    def test_violation_message_last_station_to_destination(self, simple_scenario):
+        """Test violation message when last station to destination exceeds range."""
+        simple_scenario.route.segments[3].distance_km = 250
+
+        constraint = RangeConstraint()
+        plan = ChargingPlan(bus_id="bus-01", stations=["A", "B"])
+
+        message = constraint.get_violation_message(plan, simple_scenario)
+        assert "bus-01" in message
+        assert "Destination" in message
+
+    def test_violation_message_no_violation_returns_generic(self, simple_scenario):
+        """Test that get_violation_message returns generic message when no specific violation found."""
+        constraint = RangeConstraint()
+        # Plan that is actually valid — message should still return something
+        plan = ChargingPlan(bus_id="bus-01", stations=["A", "B", "C"])
+        message = constraint.get_violation_message(plan, simple_scenario)
+        assert "bus-01" in message
+
+
+class TestRouteOrderConstraintViolationMessages:
+    """Tests for RouteOrderConstraint violation message paths."""
+
+    def test_violation_message_station_not_on_route(self, simple_scenario):
+        """Test violation message when station is not on the route."""
+        constraint = RouteOrderConstraint()
+        plan = ChargingPlan(bus_id="bus-01", stations=["A", "NOTASTATION"])
+
+        message = constraint.get_violation_message(plan, simple_scenario)
+        assert "bus-01" in message
+        assert "NOTASTATION" in message
+
+    def test_violation_message_out_of_order_stations(self, simple_scenario):
+        """Test violation message for out-of-order stations."""
+        constraint = RouteOrderConstraint()
+        plan = ChargingPlan(bus_id="bus-01", stations=["C", "A"])
+
+        message = constraint.get_violation_message(plan, simple_scenario)
+        assert "bus-01" in message
+        assert "order" in message.lower()
+
+    def test_violation_message_generic_fallback(self, simple_scenario):
+        """Test that get_violation_message returns something for valid plan."""
+        constraint = RouteOrderConstraint()
+        plan = ChargingPlan(bus_id="bus-01", stations=["A", "B", "C"])
+        message = constraint.get_violation_message(plan, simple_scenario)
+        assert "bus-01" in message
+
+
+class TestCompletionConstraintViolationMessages:
+    """Tests for CompletionConstraint violation message paths."""
+
+    def test_violation_message_station_not_on_route(self, simple_scenario):
+        """Test violation message when station is not on the bus's route."""
+        # Add a station to the route that is not reachable from Origin to Destination
+        # by adding it to stations list but not to segments
+        simple_scenario.route.stations.append(
+            Station(id="Z", name="Station Z", num_chargers=1)
+        )
+
+        constraint = CompletionConstraint()
+        plan = ChargingPlan(bus_id="bus-01", stations=["A", "Z"])
+
+        message = constraint.get_violation_message(plan, simple_scenario)
+        assert "bus-01" in message
+        # The message should indicate some kind of route/location issue
+        assert len(message) > 0
+
+    def test_violation_message_generic_fallback(self, simple_scenario):
+        """Test that get_violation_message returns something for valid plan."""
+        constraint = CompletionConstraint()
+        plan = ChargingPlan(bus_id="bus-01", stations=["A", "B", "C"])
+        message = constraint.get_violation_message(plan, simple_scenario)
+        assert "bus-01" in message

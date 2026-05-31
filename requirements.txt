@@ -1,5 +1,10 @@
-streamlit
-pydantic
-numpy
-plotly
-pandas
+# Runtime dependencies
+streamlit>=1.28.0
+pydantic>=2.0.0
+numpy>=1.24.0
+plotly>=5.0.0
+pandas>=2.0.0
+
+# Development / testing dependencies
+pytest>=7.0.0
+pytest-cov>=4.0.0
