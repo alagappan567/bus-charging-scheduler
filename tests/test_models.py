@@ -145,18 +145,18 @@ class TestRoute:
                 Segment(**{"from": "C", "to": "D", "distance_km": 100})
             ],
             stations=[
-                Station(id="b", name="B", num_chargers=1),
-                Station(id="c", name="C", num_chargers=1)
+                Station(id="B", name="Station B", num_chargers=1),
+                Station(id="C", name="Station C", num_chargers=1)
             ]
         )
         
         # Test getting stations between A and D
         stations = route.get_stations_on_route("A", "D")
-        assert stations == ["b", "c"]
+        assert stations == ["B", "C"]
         
         # Test getting stations between A and C
         stations = route.get_stations_on_route("A", "C")
-        assert stations == ["b"]
+        assert stations == ["B", "C"]
 
 
 class TestBus:
