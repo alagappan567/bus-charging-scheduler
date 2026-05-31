@@ -71,8 +71,9 @@ def show_table(rows: List[Dict], highlight_col: str = None, highlight_val: int =
   </div>
 
   <!-- Table -->
-  <div style="overflow:auto; max-height:{max_height}; border-radius:10px;
-              border:1px solid rgba(0,255,200,0.2); background:#0a1628;">
+  <div style="overflow:visible; border-radius:10px;
+              border:1px solid rgba(0,255,200,0.2); background:#0a1628;
+              padding-bottom:4px;">
     <table id="table_{uid}"
       style="width:100%; border-collapse:collapse; font-size:0.92rem;">
       <thead id="thead_{uid}"></thead>
@@ -211,7 +212,12 @@ def show_table(rows: List[Dict], highlight_col: str = None, highlight_val: int =
 }})();
 </script>
 """
-    st.components.v1.html(html, height=(height or min(len(rows) * 44 + 120, 520)), scrolling=False)
+    row_count = len(rows)
+    # Each row ~44px + 110px for toolbar/header/padding
+    natural_height = row_count * 44 + 110
+    # Cap at 480px — beyond that the iframe scrolls (single scrollbar)
+    iframe_height = min(natural_height, 480)
+    st.components.v1.html(html, height=iframe_height, scrolling=natural_height > 480)
 
 
 # ============================================================================
