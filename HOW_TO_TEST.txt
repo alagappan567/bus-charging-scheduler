@@ -1,0 +1,436 @@
+================================================================================
+                    BUS CHARGING SCHEDULER - TESTING GUIDE
+================================================================================
+
+WHAT IS THIS APPLICATION?
+--------------------------
+This is a Bus Charging Scheduler that helps schedule electric buses charging 
+along a fixed route. It optimizes when and where buses should charge while 
+respecting battery limits and charger availability.
+
+Think of it like: Multiple buses traveling from Bengaluru to Kochi need to 
+stop at charging stations (A, B, C, D) along the way. The app figures out 
+the best charging schedule to minimize wait times.
+
+
+================================================================================
+HOW TO START THE APPLICATION
+================================================================================
+
+1. INSTALL REQUIREMENTS (First Time Only)
+   -----------------------------------------
+   Open your terminal/command prompt and run:
+   
+   pip install -r requirements.txt
+   
+   This installs all needed libraries (streamlit, pydantic, plotly, pandas)
+
+
+2. START THE APPLICATION
+   ----------------------
+   In your terminal, run:
+   
+   streamlit run app.py
+   
+   The app will automatically open in your web browser at:
+   http://localhost:8501
+   
+   If it doesn't open automatically, copy that URL into your browser.
+
+
+================================================================================
+WHAT YOU'LL SEE ON THE SCREEN
+================================================================================
+
+THE MAIN INTERFACE HAS 3 PARTS:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│  LEFT SIDEBAR                                                       │
+│  ─────────────                                                      │
+│  • Scenario Selection dropdown (choose from 5 scenarios)            │
+│  • "Run Scheduler" button (click to generate the schedule)          │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│  MAIN AREA - 3 TABS                                                 │
+│  ───────────────────                                                │
+│                                                                      │
+│  TAB 1: "Scenario Configuration"                                    │
+│  Shows the input data:                                              │
+│  • Battery capacity (240 km)                                        │
+│  • Charge duration (25 minutes)                                     │
+│  • Route structure (stations A, B, C, D)                            │
+│  • List of all buses with departure times                           │
+│                                                                      │
+│  TAB 2: "Bus Timelines"                                             │
+│  Shows results for each bus:                                        │
+│  • When it departed                                                 │
+│  • Where it stopped to charge                                       │
+│  • How long it waited at each station                               │
+│  • When it arrived at destination                                   │
+│  • Charts showing wait times                                        │
+│                                                                      │
+│  TAB 3: "Station Queues"                                            │
+│  Shows what happened at each charging station:                      │
+│  • Which buses charged there                                        │
+│  • In what order                                                    │
+│  • How long each bus waited                                         │
+│  • Station utilization charts                                       │
+└─────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+HOW TO TEST - STEP BY STEP
+================================================================================
+
+TEST 1: BASIC FUNCTIONALITY
+---------------------------
+Goal: Verify the app loads and runs
+
+Steps:
+1. Start the app (streamlit run app.py)
+2. You should see the main page with title "Bus Charging Scheduler"
+3. Look at the left sidebar - you should see a dropdown menu
+4. The dropdown should show 5 scenarios:
+   - Scenario 1 - Even Spacing
+   - Scenario 2 - Bunched Start
+   - Scenario 3 - Asymmetric Load
+   - Scenario 4 - Operator Heavy
+   - Scenario 5 - Worst Case Convergence
+
+Expected Result: ✓ App loads without errors
+                 ✓ All 5 scenarios appear in dropdown
+
+
+TEST 2: RUN A SIMPLE SCENARIO
+------------------------------
+Goal: Generate a charging schedule
+
+Steps:
+1. Select "Scenario 1 - Even Spacing" from dropdown
+2. Click on "Scenario Configuration" tab
+3. You should see:
+   - Battery Capacity: 240 km
+   - Charge Duration: 25 minutes
+   - Route: Bengaluru → Kochi
+   - List of buses with their departure times
+4. Click the "▶️ Run Scheduler" button in the sidebar
+5. Wait a few seconds (you'll see a spinner)
+6. You should see "✅ Scheduling complete!" message
+
+Expected Result: ✓ Scenario loads correctly
+                 ✓ Scheduler runs without errors
+                 ✓ Success message appears
+
+
+TEST 3: VIEW BUS TIMELINES
+---------------------------
+Goal: Check individual bus schedules
+
+Steps:
+1. After running the scheduler (Test 2)
+2. Click on "Bus Timelines" tab
+3. You should see:
+   - 4 metric cards at top showing:
+     * Total Wait Time
+     * Max Wait Time
+     * Average Wait Time
+     * Total Buses
+   - Bar charts showing wait times
+   - Operator comparison charts
+   - Interactive Gantt chart timeline
+   - List of expandable bus cards below
+
+4. Click on any bus card to expand it
+5. You should see:
+   - Bus ID, operator, direction
+   - Departure and arrival times
+   - List of charging stops with:
+     * Station name
+     * Arrival time
+     * Wait time (if any)
+     * Charging start and end times
+
+Expected Result: ✓ All buses are listed
+                 ✓ Each bus shows complete journey
+                 ✓ Charging stops are clearly shown
+                 ✓ Wait times are displayed
+
+
+TEST 4: VIEW STATION QUEUES
+----------------------------
+Goal: Check what happened at each charging station
+
+Steps:
+1. After running the scheduler
+2. Click on "Station Queues" tab
+3. You should see:
+   - Utilization charts at the top
+   - Sub-tabs for each station (A, B, C, D)
+4. Click on "Station A" tab
+5. You should see:
+   - Station name and metrics:
+     * Buses Charged (how many buses used this station)
+     * Buses with Wait (how many had to wait)
+     * Total Wait (total minutes waited)
+   - A table showing:
+     * Bus ID
+     * Arrival time
+     * Wait time
+     * Charge start time
+     * Charge end time
+6. Repeat for stations B, C, and D
+
+Expected Result: ✓ Each station shows its queue
+                 ✓ Buses are listed in chronological order
+                 ✓ Wait times are highlighted (yellow background)
+                 ✓ Metrics are accurate
+
+
+TEST 5: TEST ALL 5 SCENARIOS
+-----------------------------
+Goal: Verify all scenarios work
+
+For each scenario (1 through 5):
+1. Select scenario from dropdown
+2. Click "Run Scheduler"
+3. Check that it completes successfully
+4. Verify Bus Timelines tab shows results
+5. Verify Station Queues tab shows results
+
+Expected Result: ✓ All 5 scenarios run without errors
+                 ✓ Each produces different results
+                 ✓ No crashes or error messages
+
+
+TEST 6: VERIFY CONSTRAINTS ARE RESPECTED
+-----------------------------------------
+Goal: Ensure the schedule is valid
+
+Steps:
+1. Run any scenario
+2. Go to "Bus Timelines" tab
+3. For each bus, check:
+   - Battery never exceeds 240 km between charges
+   - All charging stops are in route order (A before B before C before D)
+   - Each charge takes exactly 25 minutes
+4. Go to "Station Queues" tab
+5. For each station, verify:
+   - Only one bus charges at a time (no overlapping charge times)
+   - If a bus arrives while another is charging, it waits
+
+Expected Result: ✓ No bus travels more than 240 km without charging
+                 ✓ Stations are visited in correct order
+                 ✓ No charger conflicts (overlapping times)
+
+
+TEST 7: INTERACTIVE FEATURES
+-----------------------------
+Goal: Test filtering and sorting
+
+Steps:
+1. Run any scenario with multiple buses
+2. Go to "Bus Timelines" tab
+3. Scroll down to the filtering section
+4. Try filtering by operator:
+   - Uncheck one operator
+   - Verify only selected operators' buses show
+5. Try sorting:
+   - Select "Wait Time (High to Low)"
+   - Verify buses are sorted by wait time
+6. Try the wait time slider:
+   - Move slider to lower value
+   - Verify only buses with wait time below that value show
+
+Expected Result: ✓ Filters work correctly
+                 ✓ Sorting changes the order
+                 ✓ Slider filters results
+
+
+TEST 8: VISUAL CHARTS
+---------------------
+Goal: Verify charts display correctly
+
+Steps:
+1. Run any scenario
+2. Go to "Bus Timelines" tab
+3. Check these charts appear:
+   - "Wait Time by Bus" bar chart (colored by operator)
+   - "Operator Fairness Comparison" (two bar charts side by side)
+   - "Interactive Timeline" Gantt chart
+4. Hover over chart elements - tooltips should appear
+5. Go to "Station Queues" tab
+6. Check "Station Utilization Analysis" chart appears
+
+Expected Result: ✓ All charts render without errors
+                 ✓ Charts are interactive (hover shows details)
+                 ✓ Colors distinguish different operators
+
+
+================================================================================
+WHAT EACH SCENARIO TESTS
+================================================================================
+
+SCENARIO 1: Even Spacing
+- Buses depart evenly spaced throughout the day
+- Tests basic scheduling with minimal conflicts
+- Expected: Low wait times, balanced station usage
+
+SCENARIO 2: Bunched Start
+- Multiple buses depart around the same time
+- Tests handling of simultaneous arrivals at stations
+- Expected: Some buses will wait, queuing behavior visible
+
+SCENARIO 3: Asymmetric Load
+- Uneven distribution of buses across operators
+- Tests operator fairness objective
+- Expected: Scheduler balances wait times across operators
+
+SCENARIO 4: Operator Heavy
+- One operator has many more buses than others
+- Tests extreme operator imbalance
+- Expected: Fairness objectives prevent one operator from dominating
+
+SCENARIO 5: Worst Case Convergence
+- Designed to create maximum contention
+- Tests scheduler under stress
+- Expected: Higher wait times, but still valid schedule
+
+
+================================================================================
+COMMON ISSUES AND SOLUTIONS
+================================================================================
+
+ISSUE: "Port 8501 is already in use"
+SOLUTION: Either:
+  - Close the other Streamlit app running on that port
+  - Or run: streamlit run app.py --server.port 8502
+
+ISSUE: "Module not found" error
+SOLUTION: Install requirements:
+  pip install -r requirements.txt
+
+ISSUE: "No scenario files found"
+SOLUTION: Make sure you're running the app from the project root directory
+  where the "scenarios" folder exists
+
+ISSUE: Scheduler takes too long
+SOLUTION: This is normal for complex scenarios. Wait up to 30 seconds.
+  If it takes longer, there may be an issue.
+
+ISSUE: Charts don't display
+SOLUTION: Make sure you clicked "Run Scheduler" first. Charts only appear
+  after a schedule is generated.
+
+
+================================================================================
+WHAT TO LOOK FOR (EXPECTED BEHAVIOR)
+================================================================================
+
+GOOD SIGNS:
+✓ All buses complete their journey
+✓ No bus runs out of battery (never exceeds 240 km between charges)
+✓ Charging stops are in route order (A → B → C → D)
+✓ Only one bus charges at a station at a time
+✓ Wait times are reasonable (usually 0-30 minutes)
+✓ Different scenarios produce different results
+✓ Changing weights in scenario files changes the schedule
+
+BAD SIGNS (Report These as Bugs):
+✗ App crashes or shows error messages
+✗ Bus travels more than 240 km without charging
+✗ Stations visited out of order
+✗ Two buses charging at same station at same time
+✗ Negative wait times
+✗ Bus never reaches destination
+✗ Charts show "NaN" or undefined values
+
+
+================================================================================
+ADVANCED TESTING (Optional)
+================================================================================
+
+TEST: Modify Scenario Weights
+------------------------------
+1. Open scenarios/scenario1.json in a text editor
+2. Find the "weights" section:
+   "weights": {
+     "individual": 1.0,
+     "operator": 1.0,
+     "overall": 1.0
+   }
+3. Change values (e.g., set "individual": 5.0)
+4. Save the file
+5. Reload the scenario in the app
+6. Run scheduler
+7. Compare results with original weights
+
+Expected: Different weight values produce different schedules
+
+
+TEST: Add More Chargers
+------------------------
+1. Open scenarios/scenario1.json
+2. Find a station, e.g.:
+   {"id": "B", "name": "Station B", "num_chargers": 1}
+3. Change to: "num_chargers": 2
+4. Save and reload
+5. Run scheduler
+
+Expected: Less waiting at Station B (more chargers available)
+
+
+================================================================================
+RUNNING AUTOMATED TESTS
+================================================================================
+
+The project includes automated tests. To run them:
+
+1. Run all tests:
+   python -m pytest tests/
+
+2. Run specific test file:
+   python -m pytest tests/test_scheduler.py
+
+3. Run with coverage:
+   python -m pytest tests/ --cov=scheduler
+
+Expected: All tests should pass (green checkmarks)
+
+
+================================================================================
+SUMMARY - QUICK TEST CHECKLIST
+================================================================================
+
+□ App starts without errors
+□ All 5 scenarios load
+□ "Run Scheduler" button works
+□ Bus Timelines tab shows results
+□ Station Queues tab shows results
+□ Charts and graphs display correctly
+□ Filtering and sorting work
+□ No constraint violations (battery, charger conflicts)
+□ Wait times are reasonable
+□ All buses complete their journey
+
+If all items are checked, the app is working correctly!
+
+
+================================================================================
+NEED HELP?
+================================================================================
+
+Check these files for more information:
+- README.md - General overview and setup instructions
+- requirements.txt - List of required Python packages
+- scenarios/*.json - Example scenario configurations
+
+For technical details:
+- scheduler/models.py - Data structures
+- scheduler/scheduler.py - Main scheduling logic
+- scheduler/simulator.py - Event simulation engine
+
+
+================================================================================
+END OF TESTING GUIDE
+================================================================================
